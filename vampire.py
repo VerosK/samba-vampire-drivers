@@ -4,7 +4,7 @@ import pexpect
 from ConfigParser import ConfigParser
 from optparse import OptionParser
 
-class SrcDriver(object);
+class SrcDriver(object):
 	def __init__(self):
 		pass
 

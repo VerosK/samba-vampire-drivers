@@ -3,10 +3,19 @@
 import pexpect
 from ConfigParser import ConfigParser
 from optparse import OptionParser
+import re
+reDRIVER_ARCH = re.compile(r'\[(?P<arch>Windows .*)\]$')
+reDRIVER_IGNORE = re.compile(r'Server does not support environment .*$')
+reDRIVER_START = re.compile(r'Printer Driver Info 1:$')
+reDRIVER_NAME = re.compile(r'Driver Name: \[(?P<name>[-_A-Za-z0-9 ]+)\]$')
 
 class SrcDriver(object):
-	def __init__(self):
-		pass
+	def __init__(self, architecture, name):
+		self.architecture = architecture
+		self.name = name
+
+	def __repr__(self):
+		return "<SrcDriver '%s@%s' id=0x%x>" % (self.name, self.architecture, id(self))
 
 class SrcPrinter(object):
 	def __init__(self, path, name, driver, comment):
@@ -35,11 +44,17 @@ class SrcHost(object):
 		self.host = host
 		self.options = options
 		self._printers = None
+		self._drivers = None
 
 	def printers(self):
 		if self._printers is None:
 			self._printers = self.loadPrinterList()
 		return self._printers
+
+	def drivers(self):
+		if self._drivers is None:
+			self._drivers = self.loadDriverList()
+		return self._drivers
 	
 	def loadPrinterList(self):
 		cmd = self._prepareCommandList()
@@ -66,6 +81,34 @@ class SrcHost(object):
 				printers.append(a_printer)
 				values = {}
 		return printers
+
+	def loadDriverList(self):
+		cmd = self._prepareCommandList()
+		cmd.append('-c "enumdrivers"')
+		command = ' '.join(cmd)
+		output = pexpect.run(command)
+		#
+		architecture = None
+		drivers = []
+		for ln in output.split('\n'):
+			if not ln.strip(): continue
+			ln = ln.strip()
+			if reDRIVER_IGNORE.match(ln): continue
+			if reDRIVER_START.match(ln): continue
+			if reDRIVER_ARCH.match(ln): 
+				m = reDRIVER_ARCH.match(ln)
+				architecture = m.group('arch')
+				continue
+			if reDRIVER_NAME.match(ln):
+				m = reDRIVER_NAME.match(ln)
+				name = m.group('name')
+				a_driver = SrcDriver(
+					architecture=architecture, name=name)
+				drivers.append(a_driver)
+				continue
+			assert reDRIVER_IGNORE.match(ln), ln
+
+		return drivers
 			
 
 	def _prepareCommandList(self):
@@ -118,6 +161,7 @@ def main():
 	src = SrcHost.fromOptions(options)
 	print src
 	print src.printers()
+	print src.drivers()
 
 		
 

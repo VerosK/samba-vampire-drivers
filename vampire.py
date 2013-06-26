@@ -4,8 +4,31 @@ import pexpect
 from ConfigParser import ConfigParser
 from optparse import OptionParser
 
+class SrcDriver(object);
+	def __init__(self):
+		pass
+
 class SrcPrinter(object):
-	pass
+	def __init__(self, path, name, driver, comment):
+		self.path = path
+		self.name = name
+		self.driver = driver
+		self.comment = comment
+
+	@staticmethod
+	def fromDict(a_dict):	
+		assert 'name' in a_dict, a_dict
+		assert 'description' in a_dict, a_dict
+		name = a_dict['name'].split('\\')[-1]
+		driver = a_dict['description'].split(',')[1]
+		return SrcPrinter(
+			path=a_dict['name'],
+			name=name,
+			driver = driver, 
+			comment = a_dict['comment'])
+
+	def __repr__(self):
+		return "<SrcPrinter '%s#%s' id=0x%x>" % (self.name, self.driver, id(self))
 
 class SrcHost(object):
 	def __init__(self, host, options):
@@ -23,8 +46,27 @@ class SrcHost(object):
 		cmd.append('-c "enumprinters"')
 		command = ' '.join(cmd)
 		output = pexpect.run(command)
+		#
+		values = {}
+		printers = []
 		for ln in output.split('\n'):
 			if not ln.strip(): continue
+			parts = ln.strip().split(':',1)
+			key = parts[0]
+			assert parts[1][0]=='[',`parts[1]`
+			assert parts[1][-1]==']',`parts[1]`
+			value = parts[1][1:-1]
+
+			if key == 'flags': 
+				assert len(values) == 0, values
+			values[key] = value
+
+			if key == 'comment':
+				a_printer = SrcPrinter.fromDict(values)
+				printers.append(a_printer)
+				values = {}
+		return printers
+			
 
 	def _prepareCommandList(self):
 		cmd = ['rpcclient', self.host]

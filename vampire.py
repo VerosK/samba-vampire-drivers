@@ -4,18 +4,17 @@ import pexpect
 from ConfigParser import ConfigParser
 from optparse import OptionParser
 import re
-reDRIVER_ARCH = re.compile(r'\[(?P<arch>Windows .*)\]$')
 reDRIVER_IGNORE = re.compile(r'Server does not support environment .*$')
+reDRIVER_ARCH = re.compile(r'\[(?P<arch>Windows .*)\]$')
 reDRIVER_START = re.compile(r'Printer Driver Info 1:$')
 reDRIVER_NAME = re.compile(r'Driver Name: \[(?P<name>[-_A-Za-z0-9 ]+)\]$')
 
 class SrcDriver(object):
-	def __init__(self, architecture, name):
-		self.architecture = architecture
+	def __init__(self, name):
 		self.name = name
 
 	def __repr__(self):
-		return "<SrcDriver '%s@%s' id=0x%x>" % (self.name, self.architecture, id(self))
+		return "<SrcDriver '%s' id=0x%x>" % (self.name, id(self))
 
 class SrcPrinter(object):
 	def __init__(self, path, name, driver, comment):
@@ -88,27 +87,23 @@ class SrcHost(object):
 		command = ' '.join(cmd)
 		output = pexpect.run(command)
 		#
-		architecture = None
-		drivers = []
+		drivers = {}
 		for ln in output.split('\n'):
 			if not ln.strip(): continue
 			ln = ln.strip()
 			if reDRIVER_IGNORE.match(ln): continue
 			if reDRIVER_START.match(ln): continue
-			if reDRIVER_ARCH.match(ln): 
-				m = reDRIVER_ARCH.match(ln)
-				architecture = m.group('arch')
-				continue
+			if reDRIVER_ARCH.match(ln): continue # 
 			if reDRIVER_NAME.match(ln):
 				m = reDRIVER_NAME.match(ln)
 				name = m.group('name')
-				a_driver = SrcDriver(
-					architecture=architecture, name=name)
-				drivers.append(a_driver)
+				if name in drivers: continue
+				a_driver = SrcDriver(name=name)
+				drivers[name] = a_driver
 				continue
 			assert reDRIVER_IGNORE.match(ln), ln
+		return drivers.values()
 
-		return drivers
 			
 
 	def _prepareCommandList(self):
@@ -120,7 +115,6 @@ class SrcHost(object):
 				(self.options.source_user,
 				 self.options.source_password))
 		return cmd
-		
 		
 
 	@staticmethod

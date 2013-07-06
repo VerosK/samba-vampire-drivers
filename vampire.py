@@ -8,8 +8,21 @@ reDRIVER_IGNORE = re.compile(r'Server does not support environment .*$')
 reDRIVER_ARCH = re.compile(r'\[(?P<arch>Windows .*)\]$')
 reDRIVER_START = re.compile(r'Printer Driver Info 1:$')
 reDRIVER_NAME = re.compile(r'Driver Name: \[(?P<name>[-_A-Za-z0-9 ]+)\]$')
+reDRIVER_FILE_START3 = re.compile(r'Printer Driver Info 3:$')
+reDRIVER_FILE_VERSION = re.compile(r'Version: \[3\]$')
+reDRIVER_FILE_ITEM = re.compile(r'(?P<key>.+): \[(?P<value>.+)\]$')
+
+DRIVER_KEYS = ['Version','Architecture','Driver Path', 'Datafile', 
+	'Configfile', 'Helpfile', 'Driver Name', 'Monitorname',
+	'Defaultdatatype'
+	]
+DRIVER_EXTRA = ['Dependentfiles']
+
 
 class SrcDriver(object):
+	'''
+		Printer driver wrapper
+	'''
 	def __init__(self, name):
 		self.name = name
 
@@ -17,6 +30,9 @@ class SrcDriver(object):
 		return "<SrcDriver '%s' id=0x%x>" % (self.name, id(self))
 
 class SrcPrinter(object):
+	'''
+		Printer wrapper. 
+	'''
 	def __init__(self, path, name, driver, comment):
 		self.path = path
 		self.name = name
@@ -104,6 +120,36 @@ class SrcHost(object):
 			assert reDRIVER_IGNORE.match(ln), ln
 		return drivers.values()
 
+	def loadDriverFiles(self, driver):
+		cmd = self._prepareCommandList()
+		cmd.append('''-c 'getdriver "%s" ' ''' % driver.name)
+		command = ' '.join(cmd)
+		output = pexpect.run(command)
+		#
+		driver = {}
+		for ln in output.split('\n'):
+			if not ln.strip(): continue
+			ln = ln.strip()
+			if reDRIVER_FILE_START3.match(ln): continue # 
+			if reDRIVER_ARCH.match(ln): continue # 
+			if reDRIVER_FILE_ITEM.match(ln): 
+				m = reDRIVER_FILE_ITEM.match(ln)
+				k,v = m.group('key'), m.group('value')
+				if k in DRIVER_KEYS:
+					assert k not in driver, k
+					driver[k] = v
+				elif k in DRIVER_EXTRA:
+					if k not in driver:
+						driver[k] = [v]
+					else:
+						driver[k].append(v)
+				else:
+					assert k in DRIVER_KEYS or \
+						k in DRIVER_EXTRA, k
+				continue
+			assert reDRIVER_IGNORE.match(ln), ln
+		return driver
+
 			
 
 	def _prepareCommandList(self):
@@ -153,9 +199,9 @@ def parseArguments():
 def main():
 	options,args = parseArguments()
 	src = SrcHost.fromOptions(options)
-	print src
-	print src.printers()
-	print src.drivers()
+	first_driver = src.drivers()[0] 
+	print first_driver
+	print src.loadDriverFiles(first_driver)
 
 		
 

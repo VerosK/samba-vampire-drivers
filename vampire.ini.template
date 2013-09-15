@@ -1,0 +1,13 @@
+
+[config]
+source_address = 192.168.133.100
+source_hostname = test-pc
+source_user = test-user
+source_password = test-password
+
+destination_address = 192.168.133.163
+destination_hostname = konias
+destination_user = print-admin
+destination_password = print-password
+
+#go = 1

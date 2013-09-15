@@ -118,6 +118,9 @@ class SrcDriver(object):
 			m = reDRIVER_PATH.match(unc_path)
 			assert m, unc_path
 			return m.group('path')
+
+		def _niceName(fname):
+			return fname.lower().replace('\\', '/')
 			
 		logging.info('Getting driver files for "%s"' % self.driverName)
 		files = {}
@@ -136,7 +139,7 @@ class SrcDriver(object):
 		archive_file = StringIO.StringIO()
 		archive = ZipFile(archive_file, 'a')
 		for fname in files:
-			target_name = fname.lower().replace('\\','/')
+			target_name = _niceName(fname)
 			archive.writestr(target_name, files[fname])
 
 		# append JSON
@@ -147,10 +150,10 @@ class SrcDriver(object):
 				driver_info[k] = v
 				continue
 			if type(v) == type(''):
-				driver_info[k] = _filePath(v).lower()
+				driver_info[k] = _niceName(_filePath(v))
 			else:
 				driver_info[k] = \
-					[_filePath(l).lower() for l in v]
+					[_niceName(_filePath(l)) for l in v]
 		json_info = json.dumps(driver_info, indent=4)
 		archive.writestr('driverinfo.json', json_info)
 		archive.close()
